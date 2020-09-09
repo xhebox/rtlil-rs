@@ -1,0 +1,258 @@
+use super::lexer::*;
+use super::parser::*;
+use super::syntax::*;
+use anyhow::anyhow;
+use lalrpop_util::ParseError;
+use std::collections::HashMap;
+use std::iter::FromIterator;
+use std::sync::atomic::Ordering;
+
+grammar(parser:&mut Parser);
+
+pub Ident:String = {
+	<"ident"> =>?  match <> {
+		Token::Ident(d) => Ok(d),
+		_ => Err(ParseError::User{ error:anyhow!("internal") }),
+	},
+}
+
+pub Lit:String = {
+	<"lit"> =>? match <> {
+		Token::Literal(d) => Ok(d),
+		_ => Err(ParseError::User{ error:anyhow!("internal") }),
+	},
+}
+
+pub Int:i64 = {
+	<"int"> =>? match <> {
+		Token::Int(d) => Ok(d),
+		_ => Err(ParseError::User{ error:anyhow!("internal") }),
+	},
+}
+
+pub Sig:Signal = {
+	<"sig"> =>? match <> {
+		Token::Signal(d) => Ok(d),
+		_ => Err(ParseError::User{ error:anyhow!("internal") }),
+	},
+}
+
+pub Const:Const = {
+	<Sig> => Const::Sig(<>),
+	<Lit> => Const::Str(<>),
+	<Int> => Const::Int(<>),
+}
+
+pub SigSpec:SigSpec = {
+	<Const> => SigSpec::Const((<>, 0, 0)),
+	<Ident> => SigSpec::Refer((<>, 0, 0)),
+	<i:SigSpec> "[" <l:Int> "]" =>? match i {
+		SigSpec::Const((c, _, _)) => Ok(SigSpec::Const((c, l, 0))),
+		SigSpec::Refer((c, _, _)) => Ok(SigSpec::Refer((c, l, 0))),
+		_ => Err(ParseError::User{ error:anyhow!("except a sigspec") }),
+	},
+	<i:SigSpec> "[" <l:Int> ":" <r:Int> "]" =>? match i {
+		SigSpec::Const((c, _, _)) => Ok(SigSpec::Const((c, l, r))),
+		SigSpec::Refer((c, _, _)) => Ok(SigSpec::Refer((c, l, r))),
+		_ => Err(ParseError::User{ error:anyhow!("except a sigspec") }),
+	},
+	"{" <SigSpec*> "}" => SigSpec::List(<>),
+}
+
+pub Attribute:() = {
+	"attribute" <Ident> <Const> => {
+		parser.attrs_mut().insert(<>);
+	},
+}
+
+pub AttrCopy:HashMap<String, Const> = {
+	=> HashMap::from_iter(parser.attrs_mut().drain()),
+}
+
+pub WireOption:WireOption = {
+	"width" <Int> => WireOption::Width(<>),
+	"upto" => WireOption::Upto,
+	"signed" => WireOption::Signed,
+	"offset" <Int> => WireOption::Offset(<>),
+	"input" <Int> => WireOption::Input(<>),
+	"output" <Int> => WireOption::Output(<>),
+	"inout" <Int> => WireOption::Inout(<>),
+}
+
+pub MemoryOption:MemoryOption = {
+	"width" <i:Int> => MemoryOption::Width(i),
+	"offset" <i:Int> => MemoryOption::Offset(i),
+	"size" <i:Int> => MemoryOption::Size(i),
+}
+
+pub CellFlag:CellFlag = {
+	=> CellFlag::empty(),
+	<mut s:CellFlag> "signed" => {
+		s.insert(CellFlag::SIGNED);
+		s
+	},
+	<mut s:CellFlag> "real" => {
+		s.insert(CellFlag::REAL);
+		s
+	},
+}
+
+pub CellOption:CellOption = {
+	"parameter" <CellFlag> <Ident> <Const> => CellOption::Param((<>)),
+	"connect" <Ident> <SigSpec> => CellOption::Connect((<>)),
+}
+
+pub ProcessSwitchCaseSigList: Vec<SigSpec> = {
+	<mut m:(<SigSpec> ",")*> <n:SigSpec?> => match n {
+		None => m,
+		Some(e) => {
+			m.push(e);
+			m
+		},
+	},
+}
+
+pub ProcessSwitchCase:ProcessSwitchCase = {
+	<mut a:AttrCopy> "case" <s:ProcessSwitchCaseSigList> <b:ProcessStmt*> => {
+		let mut m = ProcessSwitchCase::new(s, b);
+		for (k, v) in a.drain() {
+			m.attrs_mut().insert(k, v);
+		}
+		m
+	},
+}
+
+pub ProcessStmt:ProcessStmt = {
+	Attribute => ProcessStmt::Empty,
+	<mut a:AttrCopy> "switch" <s:SigSpec> Attribute* <c:ProcessSwitchCase*> "end" => {
+		let mut s = ProcessSwitch::new(s, c);
+		for (k, v) in a.drain() {
+			s.attrs_mut().insert(k, v);
+		}
+		ProcessStmt::Switch(s)
+	},
+	"assign" <SigSpec> <SigSpec> => ProcessStmt::Assign((<>)),
+}
+
+pub ProcessSyncType:ProcessSyncType = {
+	"low" <SigSpec> => ProcessSyncType::Low(<>),
+	"high" <SigSpec> => ProcessSyncType::High(<>),
+	"posedge" <SigSpec> => ProcessSyncType::Posedge(<>),
+	"negedge" <SigSpec> => ProcessSyncType::Negedge(<>),
+	"edge" <SigSpec> => ProcessSyncType::Edge(<>),
+}
+
+pub ProcessSyncUpdate:(SigSpec, SigSpec) = {
+	"update" <SigSpec> <SigSpec> => (<>),
+}
+
+pub ProcessSync:ProcessSync = {
+	"sync" "always" <ProcessSyncUpdate*> => ProcessSync::new(ProcessSyncType::Always, <>),
+	"sync" "global" <ProcessSyncUpdate*> => ProcessSync::new(ProcessSyncType::Global, <>),
+	"sync" "init" <ProcessSyncUpdate*> => ProcessSync::new(ProcessSyncType::Init, <>),
+	"sync" <ProcessSyncType> <ProcessSyncUpdate*> => ProcessSync::new(<>),
+}
+
+pub ModuleStmt:ModuleStmt = {
+	Attribute => ModuleStmt::Empty,
+	"parameter" <Ident> => ModuleStmt::Param(<>),
+	"parameter" <Ident> <Const> => ModuleStmt::ParamVal((<>)),
+	<mut a:AttrCopy> "wire" <o:WireOption*> <i:Ident> => {
+		let mut m = Wire::new(i, o);
+		for (k, v) in a.drain() {
+			m.attrs_mut().insert(k, v);
+		}
+		ModuleStmt::Wire(m)
+	},
+	<mut a:AttrCopy> "memory" <o:MemoryOption*> <i:Ident> => {
+		let mut m = Memory::new(i, o);
+		for (k, v) in a.drain() {
+			m.attrs_mut().insert(k, v);
+		}
+		ModuleStmt::Memory(m)
+	},
+	<mut a:AttrCopy> "cell" <i1:Ident> <i2:Ident> <o:CellOption*> "end" => {
+		let mut m = Cell::new(i1, i2, o);
+		for (k, v) in a.drain() {
+			m.attrs_mut().insert(k, v);
+		}
+		ModuleStmt::Cell(m)
+	},
+	<mut a:AttrCopy> "process" <i:Ident> <b:ProcessStmt*> <s:ProcessSync*> "end" => {
+		let mut p = Process::new(i, b, s);
+		for (k, v) in a.drain() {
+			p.attrs_mut().insert(k, v);
+		}
+		ModuleStmt::Process(p)
+	},
+	"connect" <SigSpec> <SigSpec> => ModuleStmt::Connect(Connect::new(<>)),
+}
+
+pub Design:Design = {
+	=> Design::new(),
+	<Design> Attribute => <>,
+	<mut d:Design> "autoidx" <i:Int> => {
+		AUTOIDX.fetch_max(i as usize, Ordering::SeqCst);
+		*d.autoidx_mut() = i as usize;
+		d
+	},
+	<mut d:Design> <mut a:AttrCopy> "module" <id:Ident> <stmts:ModuleStmt*> "end" => {
+		let mut m = Module::new(id, stmts);
+		for (k, v) in a.drain() {
+			m.attrs_mut().insert(k, v);
+		}
+		d.modules_mut().push(m);
+		d
+	},
+}
+
+extern {
+	type Location = Location;
+	type Error = Error;
+
+	enum Token {
+		"ident" => Token::Ident(_),
+		"lit" => Token::Literal(_),
+		"int" => Token::Int(_),
+		"sig" => Token::Signal(_),
+		"{" => Token::LBrace,
+		"}" => Token::RBrace,
+		"[" => Token::LBracket,
+		"]" => Token::RBracket,
+		"," => Token::Comma,
+		":" => Token::Colon,
+
+		"autoidx" => Token::Autoidx,
+		"module" => Token::Module,
+		"attribute" => Token::Attribute,
+		"parameter" => Token::Parameter,
+		"signed" => Token::Signed,
+		"real" => Token::Real,
+		"wire" => Token::Wire,
+		"memory" => Token::Memory,
+		"width" => Token::Width,
+		"upto" => Token::Upto,
+		"offset" => Token::Offset,
+		"size" => Token::Size,
+		"input" => Token::Input,
+		"output" => Token::Output,
+		"inout" => Token::Inout,
+		"cell" => Token::Cell,
+		"connect" => Token::Connect,
+		"switch" => Token::Switch,
+		"case" => Token::Case,
+		"assign" => Token::Assign,
+		"sync" => Token::Sync,
+		"low" => Token::Low,
+		"high" => Token::High,
+		"posedge" => Token::Posedge,
+		"negedge" => Token::Negedge,
+		"edge" => Token::Edge,
+		"always" => Token::Always,
+		"global" => Token::Global,
+		"init" => Token::Init,
+		"update" => Token::Update,
+		"process" => Token::Process,
+		"end" => Token::End,
+	}
+}

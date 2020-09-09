@@ -1,0 +1,13 @@
+[package]
+name = "rtlil"
+version = "0.1.0"
+authors = ["xhe <xw897002528@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "^1.0"
+getset = "^0.1"
+lalrpop-util = "^0.19"
+log = "^0.4"
+env_logger = "^0.7"
+bitflags = "^1.2"
