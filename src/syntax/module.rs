@@ -45,6 +45,7 @@ impl Module {
                 ModuleStmt::Cell(n) => r.cells.push(n),
                 ModuleStmt::Process(n) => r.processes.push(n),
                 ModuleStmt::Memory(n) => r.memories.push(n),
+                ModuleStmt::Connect(n) => r.connects.push(n),
                 _ => (),
             };
         }
