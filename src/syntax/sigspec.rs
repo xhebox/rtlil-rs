@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SigSpec {
     Const((Const, i64, i64)),
     Refer((String, i64, i64)),

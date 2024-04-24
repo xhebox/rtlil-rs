@@ -1,14 +1,14 @@
 use super::*;
 use getset::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MemoryOption {
     Width(i64),
     Offset(i64),
     Size(i64),
 }
 
-#[derive(Debug, Default, Getters, MutGetters)]
+#[derive(Debug, Clone, Default, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct Memory {

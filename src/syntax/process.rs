@@ -1,7 +1,7 @@
 use super::*;
 use getset::*;
 
-#[derive(Debug, Default, Getters, MutGetters)]
+#[derive(Debug, Clone, Default, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct ProcessSwitchCase {
@@ -43,7 +43,7 @@ impl Visit for ProcessSwitchCase {
     }
 }
 
-#[derive(Debug, Getters, MutGetters)]
+#[derive(Debug, Clone, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct ProcessSwitch {
@@ -79,7 +79,7 @@ pub enum ProcessStmt {
     Switch(ProcessSwitch),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ProcessSyncType {
     Always,
     Global,
@@ -91,7 +91,7 @@ pub enum ProcessSyncType {
     Edge(SigSpec),
 }
 
-#[derive(Debug, Getters, MutGetters)]
+#[derive(Debug, Clone, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct ProcessSync {
@@ -118,7 +118,7 @@ impl Visit for ProcessSync {
     }
 }
 
-#[derive(Debug, Default, Getters, MutGetters)]
+#[derive(Debug, Clone, Default, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct Process {

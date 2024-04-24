@@ -46,13 +46,26 @@ macro_rules! define_type {
     };
 }
 
-define_type!(Design, Module, ModuleStmt, Wire, Memory, Cell, Process, ProcessSync, ProcessSwitch, ProcessSwitchCase, Connect, Signal);
+define_type!(
+    Design,
+    Module,
+    ModuleStmt,
+    Wire,
+    Memory,
+    Cell,
+    Process,
+    ProcessSync,
+    ProcessSwitch,
+    ProcessSwitchCase,
+    Connect,
+    Signal
+);
 
 pub trait Visitor {
-	fn enter(&mut self, n: Node) -> Result<()>;
-	fn leave(&mut self, n: Node) -> Result<()>;
+    fn enter(&mut self, n: Node) -> Result<()>;
+    fn leave(&mut self, n: Node) -> Result<()>;
 }
 
 pub trait Visit {
-	fn visit<F: Visitor>(&mut self, f: &mut F) -> Result<()>;
+    fn visit<F: Visitor>(&mut self, f: &mut F) -> Result<()>;
 }
