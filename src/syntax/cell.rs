@@ -12,7 +12,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Getters, MutGetters)]
+#[derive(Debug, Getters, MutGetters, Clone)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct CellParam {
@@ -39,13 +39,13 @@ impl fmt::Display for CellParam {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CellOption {
     Param((CellFlag, String, Const)),
     Connect((String, SigSpec)),
 }
 
-#[derive(Debug, Default, Getters, MutGetters)]
+#[derive(Debug, Default, Getters, MutGetters, Clone)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct Cell {

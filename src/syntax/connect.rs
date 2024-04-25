@@ -1,7 +1,7 @@
 use super::*;
 use getset::*;
 
-#[derive(Debug, Getters, MutGetters)]
+#[derive(Debug, Clone, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct Connect {

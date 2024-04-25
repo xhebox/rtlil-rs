@@ -156,7 +156,7 @@ impl<I: Iterator<Item = char>> Iterator for Lexer<I> {
                     if c == '\r' && d.map_or(false, |d| d == '\n') {
                         self.bump();
                     }
-                    continue
+                    continue;
                 }
                 (Some('['), _) => {
                     self.bump();

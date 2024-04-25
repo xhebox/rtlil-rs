@@ -12,7 +12,7 @@ pub enum WireOption {
     Inout(i64),
 }
 
-#[derive(Debug, Default, Getters, MutGetters)]
+#[derive(Debug, Default, Getters, MutGetters, Clone)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct Wire {

@@ -1,7 +1,7 @@
 use super::*;
 use getset::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ModuleStmt {
     Empty,
     Param(String),
@@ -13,7 +13,7 @@ pub enum ModuleStmt {
     Process(Process),
 }
 
-#[derive(Debug, Default, Getters, MutGetters)]
+#[derive(Debug, Clone, Default, Getters, MutGetters)]
 #[get = "pub"]
 #[get_mut = "pub"]
 pub struct Module {
@@ -37,10 +37,10 @@ impl Module {
             match stmt {
                 ModuleStmt::Param(n) => {
                     r.params.insert(n, Const::Empty);
-                },
+                }
                 ModuleStmt::ParamVal((k, v)) => {
                     r.params.insert(k, v);
-                },
+                }
                 ModuleStmt::Wire(n) => r.wires.push(n),
                 ModuleStmt::Cell(n) => r.cells.push(n),
                 ModuleStmt::Process(n) => r.processes.push(n),
